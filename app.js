@@ -523,6 +523,101 @@ function deleteFromForm() {
   $('day-dialog').close();
 }
 
+// ---- Gym view ----
+const MAX_SESSION_MIN = 4 * 60;
+
+function cleanLines(text) {
+  return text.split('\n').map(l => l.trim()).filter(Boolean).join('\n');
+}
+
+function elapsedHours(session) {
+  if (!session || !session.start) return '';
+  const min = Math.round((Date.now() - session.start) / 60000 / 5) * 5;
+  return min > 0 && min <= MAX_SESSION_MIN ? minToHours(min) : '';
+}
+
+function openGym() {
+  if (state.editing) commitEdit();
+  $('g-plan').value = Store.loadPlan();
+  renderSession();
+  $('g-update-plan').checked = false;
+  $('gym-dialog').showModal();
+  if (Store.syncConfig()) {
+    runExclusive(() => Store.syncPlan()).then(() => {
+      if (document.activeElement !== $('g-plan')) $('g-plan').value = Store.loadPlan();
+    });
+  }
+}
+
+function renderSession() {
+  const s = Store.getSession();
+  $('g-session').value = s ? s.text : '';
+  $('g-date').value = (s && s.date) || todayIso();
+  $('g-duration').value = (s && s.duration) || '';
+  $('g-duration').classList.remove('invalid');
+  renderElapsed(s);
+}
+
+function renderElapsed(s) {
+  $('g-duration').placeholder = elapsedHours(s) || 'h:mm';
+  const start = s && s.start ? new Date(s.start) : null;
+  $('g-started').textContent = start ? `Aloitettu ${pad2(start.getHours())}:${pad2(start.getMinutes())}` : '';
+}
+
+// The start time is set by the first non-empty edit; an empty duration at commit uses the elapsed time.
+function onSessionInput() {
+  const s = { ...(Store.getSession() || {}), text: $('g-session').value, date: $('g-date').value, duration: $('g-duration').value };
+  if (!s.start && s.text.trim()) s.start = Date.now();
+  Store.saveSession(s);
+  renderElapsed(s);
+}
+
+function fillSession(text) {
+  if (!text) return;
+  if (cleanLines($('g-session').value) && !confirm('Korvataanko nykyinen treeniteksti?')) return;
+  $('g-session').value = text;
+  onSessionInput();
+  $('g-session').focus();
+}
+
+function lastGymNotes(before) {
+  const year = +before.slice(0, 4);
+  for (const y of [year, year - 1]) {
+    const days = (y === state.year ? state.data : Store.loadYear(y)).days;
+    const date = Object.keys(days).filter(d => d < before && days[d].gymNotes).sort().pop();
+    if (date) return days[date].gymNotes;
+  }
+  return '';
+}
+
+function commitSession() {
+  const text = cleanLines($('g-session').value);
+  const date = $('g-date').value;
+  if (!text) { $('g-session').focus(); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { $('g-date').focus(); return; }
+  const dur = parseInput(COL.gymH, $('g-duration').value || elapsedHours(Store.getSession()));
+  $('g-duration').classList.toggle('invalid', !dur.ok);
+  if (!dur.ok) { $('g-duration').focus(); return; }
+  const existing = loadDay(date) || {};
+  if (existing.gymNotes && existing.gymNotes !== text &&
+      !confirm(`Päivällä ${fiDate(date)} on jo salimerkintä:\n\n${existing.gymNotes}\n\nKorvataanko?`)) return;
+  const day = { ...existing, gymNotes: text };
+  if (dur.value) day.gymH = dur.value;
+  if ($('g-update-plan').checked) {
+    Store.savePlan(text);
+    $('g-plan').value = text;
+  }
+  Store.saveSession(null);
+  writeDay(date, day);
+  $('gym-dialog').close();
+}
+
+function discardSession() {
+  if (cleanLines($('g-session').value) && !confirm('Tyhjennetäänkö treeni kirjaamatta?')) return;
+  Store.saveSession(null);
+  renderSession();
+}
+
 // ---- Mutations ----
 // Mutations start from localStorage because a background sync may have merged remote changes.
 function setValue(date, key, value) {
@@ -646,6 +741,7 @@ function syncYear(year) {
   return runExclusive(async () => {
     await Store.pull(year);
     await Store.push(year);
+    await Store.syncPlan();
   });
 }
 
@@ -653,6 +749,7 @@ function syncAll() {
   clearTimeout(syncTimer);
   return runExclusive(async () => {
     for (const y of Store.dirtyYears()) await Store.push(y);
+    await Store.pushPlan();
   });
 }
 
@@ -666,7 +763,7 @@ function updateStatus() {
   if (syncRunning) return;
   const cfg = Store.syncConfig();
   $('btn-sync').hidden = !cfg;
-  const dirty = Store.getDirty(state.year).length;
+  const dirty = Store.getDirty(state.year).length || Store.planDirty();
   if (!cfg) return setStatus('Paikallinen', 'local');
   if (lastSyncError) return setStatus(lastSyncError.message, 'error');
   if (dirty) return setStatus('Tallentamattomia muutoksia', 'dirty');
@@ -808,7 +905,19 @@ function bind() {
     if (y >= 1900 && y <= 2200) setYear(y);
   };
   $('btn-add').onclick = () => openForm();
+  $('btn-gym').onclick = openGym;
   $('btn-sync').onclick = manualSync;
+
+  $('g-plan').addEventListener('input', () => {
+    Store.savePlan($('g-plan').value);
+    scheduleSync();
+  });
+  ['g-session', 'g-date', 'g-duration'].forEach(id => $(id).addEventListener('input', onSessionInput));
+  $('g-duration').addEventListener('focus', () => renderElapsed(Store.getSession()));
+  $('g-from-plan').onclick = () => fillSession(Store.loadPlan());
+  $('g-from-last').onclick = () => fillSession(lastGymNotes($('g-date').value || todayIso()));
+  $('g-commit').onclick = commitSession;
+  $('g-discard').onclick = discardSession;
   $('btn-data').onclick = openData;
 
   const onlyFilled = !!Store.getSettings().onlyFilled;

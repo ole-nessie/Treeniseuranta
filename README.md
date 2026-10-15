@@ -8,6 +8,7 @@ Tiedot eivät ole tässä julkisessa repossa. Ne tallentuvat selaimen localStora
 
 - **Työpöytä (leveä ikkuna):** klikkaa solua ja kirjoita. Enter tallentaa ja siirtyy alas, Tab oikealle, Shift+Tab vasemmalle, Esc peruu. Muistiinpanoissa Shift+Enter = rivinvaihto. Sairaspäivä vaihtuu klikkaamalla. Tuplaklikkaa päivämäärää avataksesi lomakkeen.
 - **Mobiili:** lista merkityistä päivistä; napauta päivää tai *Lisää merkintä* avataksesi lomakkeen.
+- **Sali:** *Ohjelma*-kenttään kirjoitetaan nykyinen saliohjelma vapaana tekstinä (yksi liike per rivi). Salilla *Kopioi ohjelma* (tai *Kopioi edellinen*) täyttää *Treeni*-kentän, jota muokataan tehdyn mukaan. *Kirjaa* tallentaa tekstin valitun päivän *Lihaskunto, muistiinpanot* -sarakkeeseen ja keston *Lihaskunto [h]* -sarakkeeseen (tyhjä kesto = aika ensimmäisestä muokkauksesta). Keskeneräinen treeni säilyy laitteella, vaikka sovellus suljettaisiin. Ohjelma synkronoidaan data-repoon tiedostoon `data/saliohjelma.txt`.
 - Tunnit muodossa `1:30`, `1.30` tai `1` (= 1:00). Kilometrit desimaaleina, pilkku tai piste käy.
 
 ## 1. GitHub Pages (julkinen sovellus)

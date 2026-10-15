@@ -29,6 +29,7 @@
   <div class="actions">
     <span id="sync-status" class="status" data-kind="local">Paikallinen</span>
     <button type="button" class="btn primary" id="btn-add">Lisää merkintä</button>
+    <button type="button" class="btn" id="btn-gym">Sali</button>
     <button type="button" class="btn" id="btn-sync" hidden>Synkronoi</button>
     <button type="button" class="btn" id="btn-data">Data</button>
   </div>
@@ -80,6 +81,44 @@
       <button type="submit" class="btn primary">Tallenna</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="gym-dialog" class="dialog gym">
+  <div class="dialog-head">
+    <h2>Sali</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Sulje">✕</button>
+  </div>
+  <div class="gym-cols">
+    <section class="gym-session">
+      <h3>Treeni</h3>
+      <div class="row">
+        <button type="button" class="btn" id="g-from-plan">Kopioi ohjelma</button>
+        <button type="button" class="btn" id="g-from-last">Kopioi edellinen</button>
+        <span id="g-started" class="muted"></span>
+      </div>
+      <label class="field">
+        <span>Tehdyt liikkeet, yksi per rivi</span>
+        <textarea id="g-session" rows="10" spellcheck="false" autocapitalize="off" placeholder="6,6,5 70kg kyykky&#10;8,7 leuat"></textarea>
+      </label>
+      <div class="gym-meta">
+        <label class="field"><span>Päivämäärä</span><input type="date" id="g-date"></label>
+        <label class="field"><span>Kesto [h]</span><input id="g-duration" autocomplete="off"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="g-update-plan"> Päivitä ohjelmaksi tämä treeni</label>
+      <div class="row">
+        <button type="button" class="btn danger" id="g-discard">Tyhjennä</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn primary" id="g-commit">Kirjaa</button>
+      </div>
+    </section>
+    <section class="gym-plan">
+      <h3>Ohjelma</h3>
+      <label class="field">
+        <span>Tallentuu automaattisesti</span>
+        <textarea id="g-plan" rows="10" spellcheck="false" autocapitalize="off" placeholder="3x6x70kg kyykky&#10;3x6x15kg olkapäät koneella"></textarea>
+      </label>
+    </section>
+  </div>
 </dialog>
 
 <dialog id="data-dialog" class="dialog">

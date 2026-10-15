@@ -68,6 +68,25 @@ const Store = (() => {
     return s;
   }
 
+  // ---- Gym program (synced) and in-progress session (local only) ----
+  function loadPlan() {
+    return readJSON(P + 'plan', { text: '' }).text || '';
+  }
+  function savePlan(text) {
+    writeJSON(P + 'plan', { text, updated: new Date().toISOString() });
+    localStorage.setItem(P + 'plan:dirty', '1');
+  }
+  function planDirty() {
+    return localStorage.getItem(P + 'plan:dirty') === '1';
+  }
+  function getSession() {
+    return readJSON(P + 'session', null);
+  }
+  function saveSession(session) {
+    if (session) writeJSON(P + 'session', session);
+    else localStorage.removeItem(P + 'session');
+  }
+
   // ---- Import / export ----
   // Accepts a single year object, { years: [...] } or an array of year objects.
   function parseImport(text) {
@@ -228,6 +247,47 @@ const Store = (() => {
     setDirty(year, getDirty(year).filter(d => JSON.stringify(now[d]) !== JSON.stringify(pushedDays[d])));
   }
 
+  const PLAN_PATH = 'contents/data/saliohjelma.txt';
+  const PLAN_SHA = P + 'sha:plan';
+
+  // Remote wins unless the local program has unpushed edits.
+  async function pullPlan() {
+    const cfg = syncConfig();
+    const res = await gh(`${PLAN_PATH}?ref=${encodeURIComponent(cfg.branch)}`, {}, cfg);
+    if (res.status === 404) {
+      localStorage.removeItem(PLAN_SHA);
+      if (loadPlan()) localStorage.setItem(P + 'plan:dirty', '1');
+      return;
+    }
+    if (!res.ok) throw await failure(res);
+    const file = await res.json();
+    localStorage.setItem(PLAN_SHA, file.sha);
+    if (!planDirty()) writeJSON(P + 'plan', { text: b64decode(file.content), updated: new Date().toISOString() });
+  }
+
+  async function pushPlan(isRetry = false) {
+    if (!planDirty()) return;
+    const cfg = syncConfig();
+    const text = loadPlan();
+    const body = { message: 'Saliohjelma', content: b64encode(text), branch: cfg.branch };
+    const sha = localStorage.getItem(PLAN_SHA);
+    if (sha) body.sha = sha;
+    const res = await gh(PLAN_PATH, { method: 'PUT', body: JSON.stringify(body) }, cfg);
+    if ((res.status === 409 || res.status === 422) && !isRetry) {
+      await pullPlan();
+      return pushPlan(true);
+    }
+    if (!res.ok) throw await failure(res);
+    const out = await res.json();
+    localStorage.setItem(PLAN_SHA, out.content.sha);
+    if (loadPlan() === text) localStorage.removeItem(P + 'plan:dirty');
+  }
+
+  async function syncPlan() {
+    await pullPlan();
+    await pushPlan();
+  }
+
   async function remoteYears() {
     const cfg = syncConfig();
     const res = await gh(`contents/data?ref=${encodeURIComponent(cfg.branch)}`, {}, cfg);
@@ -253,6 +313,7 @@ const Store = (() => {
     loadYear, saveYear, localYears, emptyYear,
     getDirty, markDirty, dirtyYears,
     getSettings, updateSettings,
+    loadPlan, savePlan, planDirty, getSession, saveSession, pushPlan, syncPlan,
     parseImport, applyImport, exportYear, exportAll,
     syncConfig, pull, push, remoteYears, testConnection,
   };

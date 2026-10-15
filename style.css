@@ -157,6 +157,13 @@ details.group .fields {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0 10px; padding: 0 12px 6px;
 }
 details.group .field.full { grid-column: 1 / -1; }
+.dialog.gym { width: min(1000px, 96vw); }
+.gym-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.gym-cols h3 { margin-top: 4px; }
+.gym-session { order: 2; }
+.gym-plan { order: 1; }
+.gym-cols textarea { font-family: ui-monospace, Menlo, monospace; font-size: 13px; line-height: 1.6; min-height: 240px; }
+.gym-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
 .grid-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0 10px; }
 
 /* ---- Responsive ---- */
@@ -172,4 +179,9 @@ details.group .field.full { grid-column: 1 / -1; }
   .actions { margin-left: 0; width: 100%; }
   .actions .status { margin-right: auto; }
   .field input, .field textarea { font-size: 16px; } /* prevents iOS zoom */
+  .dialog.gym { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; padding-top: max(16px, env(safe-area-inset-top)); }
+  .gym-cols { grid-template-columns: 1fr; }
+  .gym-session { order: 1; }
+  .gym-plan { order: 2; }
+  .gym-cols textarea { font-size: 16px; min-height: 200px; }
 }
