@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Treeniseuranta</title>
+<meta name="theme-color" content="#1f4e79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Treenit">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+<script src="storage.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Treeniseuranta</h1>
+  <div class="year-nav">
+    <button type="button" id="year-prev" aria-label="Edellinen vuosi">‹</button>
+    <select id="year-select" aria-label="Vuosi"></select>
+    <button type="button" id="year-next" aria-label="Seuraava vuosi">›</button>
+    <button type="button" id="year-add" title="Lisää vuosi" aria-label="Lisää vuosi">+</button>
+  </div>
+  <div class="actions">
+    <span id="sync-status" class="status" data-kind="local">Paikallinen</span>
+    <button type="button" class="btn primary" id="btn-add">Lisää merkintä</button>
+    <button type="button" class="btn" id="btn-sync" hidden>Synkronoi</button>
+    <button type="button" class="btn" id="btn-data">Data</button>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Yhteenveto <span id="summary-year"></span></h2>
+    <div class="scroll-x">
+      <table id="summary" class="summary"></table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="chart-wrap">
+      <canvas id="chart"></canvas>
+      <p id="chart-missing" class="muted" hidden>Kaavio vaatii verkkoyhteyden (Chart.js).</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Päivät</h2>
+      <label class="toggle"><input type="checkbox" id="only-filled"> Vain merkityt päivät</label>
+    </div>
+    <div id="grid-wrap" class="grid-wrap">
+      <table id="grid" class="grid"></table>
+    </div>
+    <ul id="day-list" class="day-list"></ul>
+    <p class="muted hint-desktop">Klikkaa solua muokataksesi. Enter = tallenna ja alas, Tab = oikealle, Esc = peru. Tuplaklikkaa päivämäärää avataksesi lomakkeen.</p>
+  </section>
+</main>
+
+<dialog id="day-dialog" class="dialog">
+  <form id="day-form" method="dialog">
+    <div class="dialog-head">
+      <h2>Merkintä</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Sulje">✕</button>
+    </div>
+    <label class="field">
+      <span>Päivämäärä</span>
+      <input type="date" id="f-date" required>
+    </label>
+    <div id="form-groups"></div>
+    <div class="dialog-foot">
+      <button type="button" class="btn danger" id="f-delete">Poista päivä</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>Peruuta</button>
+      <button type="submit" class="btn primary">Tallenna</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="data-dialog" class="dialog">
+  <div class="dialog-head">
+    <h2>Data</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Sulje">✕</button>
+  </div>
+
+  <h3>Vienti</h3>
+  <div class="row">
+    <button type="button" class="btn" id="d-export">Vie vuosi (JSON)</button>
+    <button type="button" class="btn" id="d-export-all">Vie kaikki vuodet</button>
+    <button type="button" class="btn" id="d-copy">Kopioi vuoden JSON</button>
+  </div>
+
+  <h3>Tuonti</h3>
+  <div class="row">
+    <label><input type="radio" name="import-mode" value="merge" checked> Yhdistä (samat päivät korvataan)</label>
+    <label><input type="radio" name="import-mode" value="replace"> Korvaa koko vuosi</label>
+  </div>
+  <div class="row">
+    <button type="button" class="btn" id="d-import">Tuo tiedosto(t)</button>
+    <input type="file" id="d-file" accept=".json,application/json" multiple hidden>
+  </div>
+  <label class="field">
+    <span>Liitä tai kopioi JSON</span>
+    <textarea id="d-json" rows="6" spellcheck="false" placeholder='{"year": 2026, "days": {"2026-10-15": {"cycleKm": 12.5}}}'></textarea>
+  </label>
+  <div class="row">
+    <button type="button" class="btn" id="d-paste">Tuo liitetty JSON</button>
+  </div>
+
+  <h3>GitHub-synkronointi (yksityinen repo)</h3>
+  <div class="grid-form">
+    <label class="field"><span>Omistaja</span><input id="s-owner" autocomplete="off" autocapitalize="off" placeholder="github-käyttäjä"></label>
+    <label class="field"><span>Repo</span><input id="s-repo" autocomplete="off" autocapitalize="off" placeholder="treeniseuranta-data"></label>
+    <label class="field"><span>Haara</span><input id="s-branch" autocomplete="off" autocapitalize="off" placeholder="main"></label>
+    <label class="field"><span>Token</span><input id="s-token" type="password" autocomplete="off" placeholder="github_pat_..."></label>
+  </div>
+  <div class="row">
+    <button type="button" class="btn primary" id="s-save">Tallenna asetukset</button>
+    <button type="button" class="btn" id="s-test">Testaa yhteys</button>
+    <button type="button" class="btn" id="s-clear">Poista asetukset</button>
+  </div>
+  <p id="s-result" class="muted"></p>
+
+  <h3>Vaarallinen alue</h3>
+  <div class="row">
+    <button type="button" class="btn danger" id="d-clear-year">Tyhjennä vuosi</button>
+  </div>
+</dialog>
+
+</body>
+</html>

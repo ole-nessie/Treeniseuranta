@@ -1,0 +1,6 @@
+*.xlsx
+export/
+treeniseuranta*.json
+.vscode/
+.DS_Store
+__pycache__/
