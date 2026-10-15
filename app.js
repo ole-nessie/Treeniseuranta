@@ -551,11 +551,22 @@ function openGym() {
 
 function renderSession() {
   const s = Store.getSession();
-  $('g-session').value = s ? s.text : '';
-  $('g-date').value = (s && s.date) || todayIso();
+  const date = (s && s.date) || todayIso();
+  $('g-session').value = s ? s.text : prefillFor(date);
+  $('g-date').value = date;
   $('g-duration').value = (s && s.duration) || '';
   $('g-duration').classList.remove('invalid');
   renderElapsed(s);
+}
+
+function prefillFor(date) {
+  return (loadDay(date) || {}).gymNotes || lastGymNotes(date);
+}
+
+function onSessionDateInput() {
+  const date = $('g-date').value;
+  if (Store.getSession() || !/^\d{4}-\d{2}-\d{2}$/.test(date)) onSessionInput();
+  else $('g-session').value = prefillFor(date);
 }
 
 function renderElapsed(s) {
@@ -574,7 +585,7 @@ function onSessionInput() {
 
 function fillSession(text) {
   if (!text) return;
-  if (cleanLines($('g-session').value) && !confirm('Korvataanko nykyinen treeniteksti?')) return;
+  if (Store.getSession() && cleanLines($('g-session').value) && !confirm('Korvataanko nykyinen treeniteksti?')) return;
   $('g-session').value = text;
   onSessionInput();
   $('g-session').focus();
@@ -613,7 +624,7 @@ function commitSession() {
 }
 
 function discardSession() {
-  if (cleanLines($('g-session').value) && !confirm('Tyhjennetäänkö treeni kirjaamatta?')) return;
+  if (Store.getSession() && !confirm('Hylätäänkö treeni kirjaamatta?')) return;
   Store.saveSession(null);
   renderSession();
 }
@@ -912,7 +923,8 @@ function bind() {
     Store.savePlan($('g-plan').value);
     scheduleSync();
   });
-  ['g-session', 'g-date', 'g-duration'].forEach(id => $(id).addEventListener('input', onSessionInput));
+  ['g-session', 'g-duration'].forEach(id => $(id).addEventListener('input', onSessionInput));
+  $('g-date').addEventListener('input', onSessionDateInput);
   $('g-duration').addEventListener('focus', () => renderElapsed(Store.getSession()));
   $('g-from-plan').onclick = () => fillSession(Store.loadPlan());
   $('g-from-last').onclick = () => fillSession(lastGymNotes($('g-date').value || todayIso()));
