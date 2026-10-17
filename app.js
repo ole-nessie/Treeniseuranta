@@ -828,6 +828,88 @@ function download(name, text) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// ---- Excel export ----
+const XLSX_SRC = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.mini.min.js';
+let xlsxLoading = null;
+
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  xlsxLoading = xlsxLoading || new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = XLSX_SRC;
+    s.onload = resolve;
+    s.onerror = () => {
+      xlsxLoading = null;
+      s.remove();
+      reject(new Error('Excel-kirjaston lataus epäonnistui (vaatii verkkoyhteyden).'));
+    };
+    document.head.appendChild(s);
+  });
+  return xlsxLoading;
+}
+
+function excelSerial(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return (Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86400000;
+}
+
+function excelCell(col, v) {
+  if (v === undefined || v === null || v === '') return null;
+  switch (col.type) {
+    case 'bool': return { t: 'n', v: 1 };
+    case 'hours': return { t: 'n', v: hoursToMin(v) / 1440, z: '[h]:mm' };
+    case 'int':
+    case 'num': return { t: 'n', v: +v };
+    default: return { t: 's', v: String(v) };
+  }
+}
+
+// Same layout as the original "YYYY Harjoitukset" sheets, so convert_xlsx.py can read it back.
+function yearSheet(year, days) {
+  const header = ['Päivämäärä', 'Kuukausi', 'Päivä', ...COLUMNS.map(c => c.label)];
+  const rows = daysOfYear(year).map(d => {
+    const day = days[d.date] || {};
+    return [{ t: 'n', v: excelSerial(d.date), z: 'd.m.yyyy' }, MONTHS[d.month], WEEKDAYS[d.weekday],
+      ...COLUMNS.map(c => excelCell(c, day[c.key]))];
+  });
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = [{ wch: 11 }, { wch: 11 }, { wch: 11 },
+    ...COLUMNS.map(c => ({ wch: c.multiline ? 40 : Math.max(8, c.label.length + 2) }))];
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: header.length - 1 } }) };
+  ws['!freeze'] = 'D2';
+  return ws;
+}
+
+// With sync on, years never opened on this device exist only in the data repo.
+async function pullRemoteOnlyYears() {
+  if (!Store.syncConfig()) return;
+  await refreshRemoteYears();
+  const local = new Set(Store.localYears());
+  const missing = state.remoteYears.filter(y => !local.has(y));
+  if (missing.length) await runExclusive(async () => { for (const y of missing) await Store.pull(y); });
+}
+
+async function exportXlsx(all) {
+  if (state.editing) commitEdit();
+  try {
+    await loadXlsx();
+    if (all) await pullRemoteOnlyYears();
+  } catch (err) {
+    alert(err.message);
+    return;
+  }
+  const years = all
+    ? Store.localYears().filter(y => Object.keys(Store.loadYear(y).days).length).sort((a, b) => a - b)
+    : [state.year];
+  if (!years.length) {
+    alert('Ei vietävää dataa.');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  for (const y of years) XLSX.utils.book_append_sheet(wb, yearSheet(y, Store.loadYear(y).days), `${y} Harjoitukset`);
+  XLSX.writeFile(wb, all ? `treeniseuranta-kaikki-${todayIso()}.xlsx` : `treeniseuranta-${state.year}.xlsx`);
+}
+
 async function copyYear() {
   const text = Store.exportYear(state.year);
   const ta = $('d-json');
@@ -957,6 +1039,8 @@ function bind() {
   $('d-export').onclick = () => download(`treeniseuranta-${state.year}.json`, Store.exportYear(state.year));
   $('d-export-all').onclick = () => download(`treeniseuranta-kaikki-${todayIso()}.json`, Store.exportAll());
   $('d-copy').onclick = copyYear;
+  $('d-xlsx').onclick = () => exportXlsx(false);
+  $('d-xlsx-all').onclick = () => exportXlsx(true);
   $('d-import').onclick = () => $('d-file').click();
   $('d-file').onchange = async e => {
     const texts = await Promise.all([...e.target.files].map(f => f.text()));
